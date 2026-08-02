@@ -550,11 +550,19 @@
     else if (/in berlin|berlin\b/.test(lower) && !/around berlin|near berlin/.test(lower))
       actions.push({ label: '🏙️ Berlin', apply: () => setScope('berlin') });
 
-    // district / neighbourhood → set the distance origin like a dropped pin
-    for (const [name, ll] of Object.entries(DISTRICTS)) {
-      if (lower.includes(name)) {
-        actions.push({ label: `📍 near ${name}`, apply: () => placePin({ lat: ll[0], lng: ll[1] }) });
-        break;
+    // postcode → origin: "playground near 10437" (Berlin PLZ table)
+    const plzM = lower.match(/\b(1[0-4]\d{3})\b/);
+    const PLZ = window.PLZ || {};
+    if (plzM && PLZ[plzM[1]]) {
+      const ll = PLZ[plzM[1]];
+      actions.push({ label: `📍 PLZ ${plzM[1]}`, apply: () => placePin({ lat: ll[0], lng: ll[1] }) });
+    } else {
+      // district / neighbourhood → set the distance origin like a dropped pin
+      for (const [name, ll] of Object.entries(DISTRICTS)) {
+        if (lower.includes(name)) {
+          actions.push({ label: `📍 near ${name}`, apply: () => placePin({ lat: ll[0], lng: ll[1] }) });
+          break;
+        }
       }
     }
 
@@ -792,7 +800,7 @@
     pinBtn.classList.toggle('set', !!state.pin && !state.pinArmed);
     pinBtn.textContent = state.pinArmed ? '📌 Now tap the map to place the pin…'
       : state.pin ? '📌 Pin active — results sorted by distance (tap to remove)'
-      : '📌 Drop a pin — sort by distance from it';
+      : '📌 Drop a pin (or long-press the map) — sort by distance';
   }
   pinBtn.addEventListener('click', () => {
     if (state.pin) {           // remove existing pin
@@ -820,6 +828,28 @@
     if (window.innerWidth <= 780) $('sidebar').classList.add('open'); // show the sorted list
   }
   map.on('click', e => { if (state.pinArmed) placePin(e.latlng); });
+
+  // long-press (mobile) or right-click (desktop) drops the pin directly, no arming needed
+  map.on('contextmenu', e => { clearTimeout(lpTimer); lpTimer = null; placePin(e.latlng); });
+  const mapEl = map.getContainer();
+  let lpTimer = null, lpStart = null;
+  mapEl.addEventListener('touchstart', ev => {
+    if (ev.touches.length !== 1) return;
+    const t = ev.touches[0];
+    lpStart = [t.clientX, t.clientY];
+    clearTimeout(lpTimer);
+    lpTimer = setTimeout(() => {   // iOS fires no contextmenu on long-press — emulate it
+      lpTimer = null;
+      const r = mapEl.getBoundingClientRect();
+      placePin(map.containerPointToLatLng(L.point(lpStart[0] - r.left, lpStart[1] - r.top)));
+    }, 550);
+  }, { passive: true });
+  mapEl.addEventListener('touchmove', ev => {
+    if (!lpTimer || !lpStart) return;
+    const t = ev.touches[0];
+    if (Math.hypot(t.clientX - lpStart[0], t.clientY - lpStart[1]) > 12) { clearTimeout(lpTimer); lpTimer = null; }
+  }, { passive: true });
+  ['touchend', 'touchcancel'].forEach(n => mapEl.addEventListener(n, () => { clearTimeout(lpTimer); lpTimer = null; }));
 
   // ---------- mobile sidebar ----------
   $('sidebar-toggle').addEventListener('click', () => $('sidebar').classList.toggle('open'));

@@ -41,6 +41,7 @@ bez_min = {'type': 'FeatureCollection', 'features': bez_feats}
 
 # ---------- data ----------
 places_js = rd(os.path.join(ROOT, 'data/places.js'))
+plz_js = rd(os.path.join(ROOT, 'data/plz.js'))
 manifest_js = rd(os.path.join(ROOT, 'data/layers_manifest.js'))
 events_js = rd(os.path.join(ROOT, 'data/events.js'))
 
@@ -201,7 +202,7 @@ parts = [
     '<script>',
     'window.BASE_WORLD = ' + json.dumps(world_min, ensure_ascii=False, separators=(',', ':')) + ';',
     'window.BASE_BEZIRKE = ' + json.dumps(bez_min, ensure_ascii=False, separators=(',', ':')) + ';',
-    places_js, manifest_js, events_js, layers_js,
+    places_js, plz_js, manifest_js, events_js, layers_js,
     '</script>',
     '<script>', app, '</script>',
 ]
