@@ -22,14 +22,20 @@ body { font: 14px/1.45 -apple-system, "Segoe UI", Roboto, sans-serif; color: var
   background: var(--bg); border-right: 1px solid var(--border); z-index: 1000;
 }
 #sidebar-toggle {
-  display: none; position: fixed; top: 10px; left: 10px; z-index: 1200;
-  background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
-  font-size: 18px; padding: 6px 10px; box-shadow: var(--shadow); cursor: pointer;
+  display: none; position: fixed; top: 10px; left: 10px; z-index: 3000;
+  background: var(--bg); color: var(--ink); border: 1px solid var(--border); border-radius: 10px;
+  font-size: 20px; min-width: 46px; min-height: 44px; box-shadow: var(--shadow); cursor: pointer;
+}
+#open-pill {
+  display: none; position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%);
+  z-index: 3000; background: var(--accent); color: #fff; border: none; border-radius: 999px;
+  font-size: 14px; font-weight: 700; padding: 11px 20px; box-shadow: var(--shadow); cursor: pointer;
 }
 @media (max-width: 780px) {
   #sidebar { position: fixed; inset: 0 auto 0 0; transform: translateX(-102%); transition: transform .2s; box-shadow: var(--shadow); }
   #sidebar.open { transform: none; }
   #sidebar-toggle { display: block; }
+  #sidebar:not(.open) ~ #open-pill { display: block; }
 }
 
 #brand h1 { margin: 0; font-size: 21px; }

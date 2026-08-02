@@ -75,6 +75,7 @@
     pin: null,          // {lat, lng} — user-dropped origin for distance sorting/filtering
     pinArmed: false,
     eventsToday: false,
+    maxKm: null,               // explicit radius from "max 3 km" queries
     excludeTypes: new Set(),   // negated types ("not a museum")
     textSearch: null,          // free-text term matched against names/descriptions
     seasonExclude: '',         // 'summer' | 'winter' — hide off-season places for a queried month
@@ -92,7 +93,9 @@
   }
 
   // ---------- map ----------
-  const map = L.map('map', { zoomControl: true, minZoom: 2, maxZoom: 18 }).setView([52.52, 13.405], 11);
+  // zoom control bottom-right so it never sits under the ☰ toggle
+  const map = L.map('map', { zoomControl: false, minZoom: 2, maxZoom: 18 }).setView([52.52, 13.405], 11);
+  L.control.zoom({ position: 'bottomright' }).addTo(map);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
@@ -180,10 +183,12 @@
 
   // ---------- filtering ----------
   function passes(p) {
-    // scope — overlapping bands, not exclusive buckets: a 27 km Karls trip is a day trip too
-    if (state.scope === 'berlin' && p.dist_km > 28) return false;
-    if (state.scope === 'daytrip' && p.dist_km > 150) return false;
+    // scope — overlapping bands, origin-aware: "in Berlin" means near me, not 28 km out
+    if (state.scope === 'berlin' && distKm(p) > 12) return false;
+    if (state.scope === 'daytrip' && distKm(p) > 150) return false;
     if (state.scope === 'vacation' && p.dist_km < 60) return false;
+    // explicit radius ("max 3 km") — small tolerance, never 10 km overshoot
+    if (state.maxKm && distKm(p) > state.maxKm + 2) return false;
     // travel time (from dropped pin if set, else Berlin center)
     if (state.travelMin) {
       const v = SPEEDS[state.travelMode] || 32;
@@ -257,6 +262,8 @@
     renderResults();
     document.getElementById('result-count').textContent =
       `${visible.length} of ${PLACES.length} places`;
+    const pill = document.getElementById('open-pill');
+    if (pill) pill.textContent = `☰ ${visible.length} places`;
     saveHash();
   }
 
@@ -401,7 +408,7 @@
     state.scope = 'all'; state.travelMin = null;
     state.types.clear(); state.prices.clear();
     state.excludeTypes.clear(); state.textSearch = null;
-    state.seasonExclude = ''; state.textBoost = null;
+    state.seasonExclude = ''; state.textBoost = null; state.maxKm = null;
     Object.values(checkMap).forEach(k => state[k] = false);
     state.queryChips = [];
     ['age1','age2','age3','travel-min','query'].forEach(id => $(id).value = '');
@@ -530,6 +537,13 @@
       actions.push({ label: '🚇 public transport', apply: () => { state.travelMode = 'transit'; $('travel-mode').value = 'transit'; } });
     else if (/\bby car\b|\bcar\b|\bauto\b|\bdrive\b|driving/.test(lower))
       actions.push({ label: '🚗 car', apply: () => { state.travelMode = 'driving'; $('travel-mode').value = 'driving'; } });
+
+    // explicit radius: "max 3 km", "within 5km"
+    const kmM = lower.match(/(?:within|max\.?|under|unter|bis|radius)?\s*(\d{1,2}(?:[.,]\d)?)\s*km\b/);
+    if (kmM) {
+      const km = parseFloat(kmM[1].replace(',', '.'));
+      actions.push({ label: `📏 ≤${km} km`, apply: () => { state.maxKm = km; } });
+    }
 
     // travel time "within 30 min", "1 hour away", "unter 1 stunde"
     let tm = lower.match(/(?:within|max|under|unter|bis)?\s*(\d{1,3})\s*min/);
@@ -853,6 +867,7 @@
 
   // ---------- mobile sidebar ----------
   $('sidebar-toggle').addEventListener('click', () => $('sidebar').classList.toggle('open'));
+  $('open-pill').addEventListener('click', () => $('sidebar').classList.add('open'));
   // touching the map collapses the sidebar back into the ☰ bubble
   ['touchstart', 'mousedown'].forEach(evt =>
     document.getElementById('map').addEventListener(evt, () => {

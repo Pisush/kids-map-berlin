@@ -789,14 +789,20 @@ body { font: 14px/1.45 -apple-system, "Segoe UI", Roboto, sans-serif; color: var
   background: var(--bg); border-right: 1px solid var(--border); z-index: 1000;
 }
 #sidebar-toggle {
-  display: none; position: fixed; top: 10px; left: 10px; z-index: 1200;
-  background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
-  font-size: 18px; padding: 6px 10px; box-shadow: var(--shadow); cursor: pointer;
+  display: none; position: fixed; top: 10px; left: 10px; z-index: 3000;
+  background: var(--bg); color: var(--ink); border: 1px solid var(--border); border-radius: 10px;
+  font-size: 20px; min-width: 46px; min-height: 44px; box-shadow: var(--shadow); cursor: pointer;
+}
+#open-pill {
+  display: none; position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%);
+  z-index: 3000; background: var(--accent); color: #fff; border: none; border-radius: 999px;
+  font-size: 14px; font-weight: 700; padding: 11px 20px; box-shadow: var(--shadow); cursor: pointer;
 }
 @media (max-width: 780px) {
   #sidebar { position: fixed; inset: 0 auto 0 0; transform: translateX(-102%); transition: transform .2s; box-shadow: var(--shadow); }
   #sidebar.open { transform: none; }
   #sidebar-toggle { display: block; }
+  #sidebar:not(.open) ~ #open-pill { display: block; }
 }
 
 #brand h1 { margin: 0; font-size: 21px; }
@@ -1035,6 +1041,7 @@ input, select, button { font-family: inherit; color: var(--ink); }
   </aside>
   <div id="map"></div>
   <button id="sidebar-toggle" title="toggle filters">☰</button>
+  <button id="open-pill" title="open filters & results">☰ results</button>
 </div>
 <script>
 /* @preserve
@@ -1312,6 +1319,7 @@ window.LAYER_WASSERSPIELPLAETZE = {"type":"FeatureCollection","features":[{"type
     pin: null,          // {lat, lng} — user-dropped origin for distance sorting/filtering
     pinArmed: false,
     eventsToday: false,
+    maxKm: null,               // explicit radius from "max 3 km" queries
     excludeTypes: new Set(),   // negated types ("not a museum")
     textSearch: null,          // free-text term matched against names/descriptions
     seasonExclude: '',         // 'summer' | 'winter' — hide off-season places for a queried month
@@ -1329,7 +1337,9 @@ window.LAYER_WASSERSPIELPLAETZE = {"type":"FeatureCollection","features":[{"type
   }
 
   // ---------- map ----------
-  const map = L.map('map', { zoomControl: true, minZoom: 2, maxZoom: 18 }).setView([52.52, 13.405], 11);
+  // zoom control bottom-right so it never sits under the ☰ toggle
+  const map = L.map('map', { zoomControl: false, minZoom: 2, maxZoom: 18 }).setView([52.52, 13.405], 11);
+  L.control.zoom({ position: 'bottomright' }).addTo(map);
   // vector basemap (CSP-safe: no external tiles)
   const css = () => getComputedStyle(document.documentElement);
   let landLayer, bezLayer;
@@ -1436,10 +1446,12 @@ window.LAYER_WASSERSPIELPLAETZE = {"type":"FeatureCollection","features":[{"type
 
   // ---------- filtering ----------
   function passes(p) {
-    // scope — overlapping bands, not exclusive buckets: a 27 km Karls trip is a day trip too
-    if (state.scope === 'berlin' && p.dist_km > 28) return false;
-    if (state.scope === 'daytrip' && p.dist_km > 150) return false;
+    // scope — overlapping bands, origin-aware: "in Berlin" means near me, not 28 km out
+    if (state.scope === 'berlin' && distKm(p) > 12) return false;
+    if (state.scope === 'daytrip' && distKm(p) > 150) return false;
     if (state.scope === 'vacation' && p.dist_km < 60) return false;
+    // explicit radius ("max 3 km") — small tolerance, never 10 km overshoot
+    if (state.maxKm && distKm(p) > state.maxKm + 2) return false;
     // travel time (from dropped pin if set, else Berlin center)
     if (state.travelMin) {
       const v = SPEEDS[state.travelMode] || 32;
@@ -1513,6 +1525,8 @@ window.LAYER_WASSERSPIELPLAETZE = {"type":"FeatureCollection","features":[{"type
     renderResults();
     document.getElementById('result-count').textContent =
       `${visible.length} of ${PLACES.length} places`;
+    const pill = document.getElementById('open-pill');
+    if (pill) pill.textContent = `☰ ${visible.length} places`;
     saveHash();
   }
 
@@ -1657,7 +1671,7 @@ window.LAYER_WASSERSPIELPLAETZE = {"type":"FeatureCollection","features":[{"type
     state.scope = 'all'; state.travelMin = null;
     state.types.clear(); state.prices.clear();
     state.excludeTypes.clear(); state.textSearch = null;
-    state.seasonExclude = ''; state.textBoost = null;
+    state.seasonExclude = ''; state.textBoost = null; state.maxKm = null;
     Object.values(checkMap).forEach(k => state[k] = false);
     state.queryChips = [];
     ['age1','age2','age3','travel-min','query'].forEach(id => $(id).value = '');
@@ -1786,6 +1800,13 @@ window.LAYER_WASSERSPIELPLAETZE = {"type":"FeatureCollection","features":[{"type
       actions.push({ label: '🚇 public transport', apply: () => { state.travelMode = 'transit'; $('travel-mode').value = 'transit'; } });
     else if (/\bby car\b|\bcar\b|\bauto\b|\bdrive\b|driving/.test(lower))
       actions.push({ label: '🚗 car', apply: () => { state.travelMode = 'driving'; $('travel-mode').value = 'driving'; } });
+
+    // explicit radius: "max 3 km", "within 5km"
+    const kmM = lower.match(/(?:within|max\.?|under|unter|bis|radius)?\s*(\d{1,2}(?:[.,]\d)?)\s*km\b/);
+    if (kmM) {
+      const km = parseFloat(kmM[1].replace(',', '.'));
+      actions.push({ label: `📏 ≤${km} km`, apply: () => { state.maxKm = km; } });
+    }
 
     // travel time "within 30 min", "1 hour away", "unter 1 stunde"
     let tm = lower.match(/(?:within|max|under|unter|bis)?\s*(\d{1,3})\s*min/);
@@ -2080,6 +2101,7 @@ window.LAYER_WASSERSPIELPLAETZE = {"type":"FeatureCollection","features":[{"type
 
   // ---------- mobile sidebar ----------
   $('sidebar-toggle').addEventListener('click', () => $('sidebar').classList.toggle('open'));
+  $('open-pill').addEventListener('click', () => $('sidebar').classList.add('open'));
   // touching the map collapses the sidebar back into the ☰ bubble
   ['touchstart', 'mousedown'].forEach(evt =>
     document.getElementById('map').addEventListener(evt, () => {
