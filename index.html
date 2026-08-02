@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kids Berlin Map — things to do with kids in &amp; around Berlin</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎈</text></svg>">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app">
+  <aside id="sidebar">
+    <header id="brand">
+      <h1>🎈 Kids Berlin Map</h1>
+      <p class="tagline">Things to do with kids in &amp; around Berlin — and beyond</p>
+    </header>
+
+    <div id="weather-banner" class="hidden"></div>
+
+    <section class="panel">
+      <label for="query" class="panel-title">Ask the map</label>
+      <div class="query-row">
+        <input id="query" type="text" autocomplete="off"
+          placeholder='e.g. "hot day with a 2yo and no car" or "vacation with rollercoasters for 4+7yo"'>
+        <button id="query-go" title="Interpret my question">Go</button>
+      </div>
+      <div id="query-chips" class="chips"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-title">Kids’ ages</div>
+      <div class="ages-row">
+        <input type="number" min="0" max="17" class="age-input" id="age1" placeholder="age">
+        <input type="number" min="0" max="17" class="age-input" id="age2" placeholder="age">
+        <input type="number" min="0" max="17" class="age-input" id="age3" placeholder="age">
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-title">Where</div>
+      <div class="seg" id="scope-seg">
+        <button data-scope="all" class="on">All</button>
+        <button data-scope="berlin">Berlin</button>
+        <button data-scope="daytrip">Day trips</button>
+        <button data-scope="vacation">Vacations</button>
+      </div>
+      <div class="travel-row">
+        <span>Max travel</span>
+        <input type="number" id="travel-min" min="5" max="960" step="5" placeholder="min">
+        <select id="travel-mode">
+          <option value="transit">🚇 public transport</option>
+          <option value="driving">🚗 car</option>
+          <option value="bicycling">🚲 bike</option>
+          <option value="walking">🚶 walk</option>
+        </select>
+      </div>
+      <button id="pin-btn" class="pin-btn">📌 Drop a pin — sort by distance from it</button>
+    </section>
+
+    <section class="panel">
+      <div class="panel-title">What kind of thing?</div>
+      <div id="type-chips" class="chips selectable"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-title">Considerations</div>
+      <div class="checks" id="considerations">
+        <label><input type="checkbox" id="c-rainy"> 🌧️ rainy-day friendly</label>
+        <label><input type="checkbox" id="c-hot"> 🥵 hot-day friendly (water / shade / AC)</label>
+        <label><input type="checkbox" id="c-ac"> ❄️ must have AC</label>
+        <label><input type="checkbox" id="c-indoor"> 🏠 indoor</label>
+        <label><input type="checkbox" id="c-outdoor"> 🌳 outdoor</label>
+        <label><input type="checkbox" id="c-zecken"> 🕷️ minimize tick (Zecken) exposure</label>
+        <label><input type="checkbox" id="c-eps"> 🐛 avoid oak-processionary risk (May–Sep)</label>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-title">Price</div>
+      <div class="checks inline" id="price-checks">
+        <label><input type="checkbox" value="free"> free</label>
+        <label><input type="checkbox" value="cheap"> € (≤5)</label>
+        <label><input type="checkbox" value="medium"> €€ (5–15)</label>
+        <label><input type="checkbox" value="expensive"> €€€ (15+)</label>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-title">Map layers</div>
+      <div class="checks" id="layer-checks"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-title-row">
+        <span class="panel-title">📅 Events &amp; tips</span>
+        <label class="today-check"><input type="checkbox" id="events-today"> today only</label>
+        <button id="events-toggle" class="linkish">show</button>
+      </div>
+      <div id="events-list" class="hidden"></div>
+    </section>
+
+    <section class="panel" id="results-panel">
+      <div class="panel-title-row">
+        <span class="panel-title">Results</span>
+        <span id="result-count"></span>
+        <button id="reset-btn" class="linkish">reset all</button>
+      </div>
+      <div id="results"></div>
+    </section>
+
+    <footer id="credits">
+      Data: personal Google Maps lists · overlays from official Berlin/RKI open data (see layer info) ·
+      built with Leaflet &amp; OpenStreetMap.
+    </footer>
+  </aside>
+  <div id="map"></div>
+  <button id="sidebar-toggle" title="toggle filters">☰</button>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<script src="data/places.js"></script>
+<script src="data/layers_manifest.js"></script>
+<script src="data/events.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
